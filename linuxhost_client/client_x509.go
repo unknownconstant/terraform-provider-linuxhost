@@ -21,7 +21,7 @@ func CertificateInfo(certificatePath string) CertificateData {
 	/// Load the certificate (PEM format)
 	certPEM, err := os.ReadFile(certificatePath)
 	if err != nil {
-		log.Fatalf("Error reading certificate file: %v", err)
+		log.Fatalf("Error reading certificate file (%s): %v", certificatePath, err)
 	}
 
 	/// Decode the PEM block
@@ -45,7 +45,8 @@ func CertificateInfo(certificatePath string) CertificateData {
 		Sha256Fingerprint: hash,
 	}
 }
-func parseFingerprint(hexFingerprint string) ([32]byte, error) {
+
+func decodeBytesString(hexFingerprint string) ([32]byte, error) {
 	var fingerprint [32]byte
 	/// Remove colons
 	hexFingerprint = strings.ReplaceAll(hexFingerprint, ":", "")
@@ -61,7 +62,7 @@ func parseFingerprint(hexFingerprint string) ([32]byte, error) {
 	copy(fingerprint[:], bytes)
 	return fingerprint, nil
 }
-func EncodeFingerprint(fingerprint [32]byte) string {
+func EncodeBytesString(fingerprint [32]byte) string {
 	/// Convert to hexadecimal string
 	hexStr := hex.EncodeToString(fingerprint[:])
 	var result strings.Builder
@@ -76,34 +77,6 @@ func EncodeFingerprint(fingerprint [32]byte) string {
 	return result.String()
 }
 
-func fingerprintHandler(p *Parser[CertificateData], line string) {
-	if !strings.HasPrefix(line, "SHA256 Fingerprint=") {
-		return
-	}
-	fingerprint, _ := parseFingerprint(strings.TrimPrefix(line, "SHA256 Fingerprint="))
-
-	p.AddItem(CertificateData{
-		Sha256Fingerprint: fingerprint,
-	})
-}
-
-func detailHandler(p *Parser[CertificateData], line string) {
-	if p.CurrentItem == nil {
-		fmt.Println("No current certificate")
-		return
-	}
-	parts := strings.SplitN(line, "=", 2)
-	if len(parts) != 2 {
-		return
-	}
-	key := strings.TrimSpace(parts[0])
-	value := strings.TrimSpace(parts[1])
-
-	if key == "subject" {
-		p.CurrentItem.Subject = value
-	}
-}
-
 func SetRemoteCaTrust(context SSHCommandContext) SSHCommandContext {
 	result := context.Exec("sudo update-ca-certificates -f")
 	if result.Error != nil {
@@ -112,20 +85,41 @@ func SetRemoteCaTrust(context SSHCommandContext) SSHCommandContext {
 	return result
 }
 
-func parseOpenSSLCertificates(output string) []CertificateData {
-	parser := NewParser[CertificateData]()
-	parser.AddHandler(fingerprintHandler)
-	parser.AddHandler(detailHandler)
-
-	parser.Parse(output)
-	return parser.Items
+func Sha256Fingerprint(cert *x509.Certificate) [32]byte {
+	hash := sha256.Sum256(cert.Raw)
+	return hash
 }
-func RefreshRemoteCertificates(client *SSHClientContext) []CertificateData {
-	cmd := "sudo bash -c 'while openssl x509 -noout -fingerprint -sha256 -serial -issuer -dates -subject ; do :; done < /etc/ssl/certs/ca-certificates.crt'"
+
+func parseX509Certificates(output string) []*x509.Certificate {
+	rest := []byte(output)
+	certs := []*x509.Certificate{}
+	for {
+		var block *pem.Block
+		block, rest = pem.Decode(rest)
+		if block == nil {
+			break
+		}
+
+		if block.Type != "CERTIFICATE" {
+			continue
+		}
+
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			log.Fatal(err)
+		}
+		certs = append(certs, cert)
+	}
+	return certs
+}
+
+func RefreshRemoteCertificates(client *SSHClientContext) []*x509.Certificate {
+	c := "cat /etc/ssl/certs/ca-certificates.crt"
+	cmd := "sudo bash -c '" + c + "'"
 	result := NewSSHCommandContext(client).Exec(cmd)
 
 	if result.Error != nil {
 		fmt.Println("Error", result.Error)
 	}
-	return parseOpenSSLCertificates(result.Output)
+	return parseX509Certificates(result.Output)
 }

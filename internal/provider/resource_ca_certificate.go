@@ -35,17 +35,18 @@ func (r *CaCertificateResource) Schema(ctx context.Context, req resource.SchemaR
 		MarkdownDescription: "A trusted root certificate on the host",
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
-				Required: true,
+				Required:            true,
+				MarkdownDescription: "Human-readable name for the certificate, also used as its filename",
 			},
 			"source": schema.StringAttribute{
-				Required: true,
+				Required:            true,
+				MarkdownDescription: "The certificate source location. For a file, a standard unix path. Or, https://example.com/certificate.pem.",
 			},
 			"fingerprint_sha256": schema.StringAttribute{
 				Computed: true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
-				// PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 		},
 		Version: 1,
@@ -62,19 +63,21 @@ func (r *CaCertificateResource) readState(ctx context.Context, data *models.CaCe
 	certs := linuxhost_client.RefreshRemoteCertificates(r.hostData.Client)
 
 	for _, cert := range certs {
-		if cert.Sha256Fingerprint == expected.Sha256Fingerprint {
-			crt := &models.CaCertificateModel{
-				Name:              data.Name,
-				Source:            data.Source,
-				FingerprintSha256: types.StringValue(linuxhost_client.EncodeFingerprint(cert.Sha256Fingerprint)),
-			}
-			if expect == "absent" {
-				Diagnostics.AddError("Failed to delete", "The delete operation did not report any errors but the resource remains present in the reported state.")
-				return
-			}
-			Diagnostics.Append(State.Set(ctx, crt)...)
+		fingerprint := linuxhost_client.Sha256Fingerprint(cert)
+		if fingerprint != expected.Sha256Fingerprint {
+			continue
+		}
+		crt := &models.CaCertificateModel{
+			Name:              data.Name,
+			Source:            data.Source,
+			FingerprintSha256: types.StringValue(linuxhost_client.EncodeBytesString(fingerprint)),
+		}
+		if expect == "absent" {
+			Diagnostics.AddError("Failed to delete", "The delete operation did not report any errors but the resource remains present in the reported state.")
 			return
 		}
+		Diagnostics.Append(State.Set(ctx, crt)...)
+		return
 	}
 	if expect == "present" {
 		Diagnostics.AddError("Didn't find certificate", "")
