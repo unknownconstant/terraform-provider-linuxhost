@@ -13,6 +13,14 @@ type FileTransferParams struct {
 	Gid             *int
 }
 
+type FileContentParams struct {
+	Content         string
+	DestinationPath string
+	Permissions     *int
+	Uid             *int
+	Gid             *int
+}
+
 func SetTextFile(c *SSHCommandContext, params *FileTransferParams) *SSHCommandContext {
 	/// Open the local file
 	localFile, err := os.ReadFile(params.SourcePath)
@@ -21,6 +29,18 @@ func SetTextFile(c *SSHCommandContext, params *FileTransferParams) *SSHCommandCo
 		return c
 	}
 	fileContent := string(localFile)
+	return SetTextFileContent(c, &FileContentParams{
+		Content:         fileContent,
+		DestinationPath: params.DestinationPath,
+		Permissions:     params.Permissions,
+		Uid:             params.Uid,
+		Gid:             params.Gid,
+	})
+}
+
+func SetTextFileContent(c *SSHCommandContext, params *FileContentParams) *SSHCommandContext {
+	fileContent := params.Content
+
 	r := c.
 		Exec(fmt.Sprintf("sudo touch %s", params.DestinationPath)).
 		Then(func(ctx SSHCommandContext) SSHCommandContext {

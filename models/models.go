@@ -50,5 +50,7 @@ type GroupModel struct {
 type CaCertificateModel struct {
 	Name              types.String `tfsdk:"name"`
 	Source            types.String `tfsdk:"source"`
+	Certificate       types.String `tfsdk:"certificate"`
 	FingerprintSha256 types.String `tfsdk:"fingerprint_sha256"`
+	SerialNumber      types.String `tfsdk:"serial_number"`
 }

@@ -70,9 +70,9 @@ func TestParseOpenSSLCertificates(t *testing.T) {
 	if len(parsedCertificates) != 3 {
 		t.Errorf("There should be 3 certificates present, got %d", len(parsedCertificates))
 	}
-	expectedFingerprint, _ := decodeBytesString("55:90:38:59:C8:C0:C3:EB:B8:75:9E:CE:4E:25:57:22:5F:F5:75:8B:BD:38:EB:D4:82:76:60:1E:1B:D5:80:97")
+	expectedFingerprint := [32]byte{85, 144, 56, 89, 200, 192, 195, 235, 184, 117, 158, 206, 78, 37, 87, 34, 95, 245, 117, 139, 189, 56, 235, 212, 130, 118, 96, 30, 27, 213, 128, 151}
 	actualFingerprint := Sha256Fingerprint(parsedCertificates[2])
 	if expectedFingerprint != actualFingerprint {
-		t.Errorf("Expected certificate[2] sha256 to be\n[84 144 56 89 200 192 195 235 184 117 158 206 78 37 87 34 95 245 117 139 189 56 235 212 130 118 96 30 27 213 128 151]\ngot:\n%d", actualFingerprint)
+		t.Errorf("Expected certificate[2] sha256 to be\n%d\ngot:\n%d", expectedFingerprint, actualFingerprint)
 	}
 }
