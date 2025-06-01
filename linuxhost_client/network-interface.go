@@ -183,7 +183,7 @@ func ParseAdapters(ipOutput string) []AdapterInfo {
 	var adapters []AdapterInfo
 
 	// Regular expressions to match interface lines and IP addresses with subnets
-	adapterRegex := regexp.MustCompile(`^\d+: ([a-zA-Z0-9\.-]+)[a-zA-Z0-9@\.-]*:`)
+	adapterRegex := regexp.MustCompile(`^\d+: ([a-zA-Z0-9\._-]+)[a-zA-Z0-9@\.-]*:`)
 	ipv4Regex := regexp.MustCompile(`inet (\d+\.\d+\.\d+\.\d+)/(\d+)`)
 	ipv6Regex := regexp.MustCompile(`inet6 ([a-fA-F0-9:]+)/(\d+)`)
 	macRegex := regexp.MustCompile(`(?:ether|loopback)\s*(([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2}))`)
