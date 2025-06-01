@@ -32,6 +32,8 @@ Once you've written your provider, you'll want to [publish it on the Terraform R
 1. Build the provider using the Go `install` command:
 
 ```shell
+## Set GOBIN
+export GOBIN="$(realpath ~/go/bin)"
 go install
 ```
 
