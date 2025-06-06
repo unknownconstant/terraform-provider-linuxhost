@@ -4,7 +4,7 @@ import "fmt"
 
 type IfVxlan struct {
 	IfCommon
-	Vid  uint32
+	Vni  uint32
 	Port uint32
 }
 
@@ -15,7 +15,7 @@ func (m *IfVxlan) GetCommon() *IfCommon {
 }
 
 func CreateIfVXLAN(connectedClient *SSHClientContext, iface *IfVxlan) (*IfVxlan, error) {
-	cmd := fmt.Sprintf("sudo ip link add %s type vxlan id %d dstport %d", iface.Name, iface.Vid, iface.Port)
+	cmd := fmt.Sprintf("sudo ip link add %s type vxlan id %d dstport %d", iface.Name, iface.Vni, iface.Port)
 	fmt.Println("DO CMD: " + cmd)
 	result, err := connectedClient.ExecuteCommand(cmd)
 	if err != nil {

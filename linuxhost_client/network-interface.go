@@ -120,7 +120,7 @@ type AdapterInfo struct {
 	IPv6            []models.IPWithSubnet
 	Type            string
 	Vlan            *int
-	Vid             *int64
+	Vni             *int64
 	Port            *int32
 	ParentInterface *string
 	DHCP            *string
@@ -294,11 +294,11 @@ func ParseAdapters(ipOutput string) []AdapterInfo {
 
 		// Match vxlan
 		if match := vxlanRegex.FindStringSubmatch(line); match != nil {
-			vid, err := strconv.ParseInt(match[1], 10, 64)
+			vni, err := strconv.ParseInt(match[1], 10, 64)
 			if err != nil {
-				fmt.Println("Error converting vid str to int")
+				fmt.Println("Error converting vni str to int")
 			}
-			currentAdapter.Vid = &vid
+			currentAdapter.Vni = &vni
 			port, err := strconv.ParseInt(match[2], 10, 64)
 			if err != nil {
 				fmt.Println("Error converting port str to int")

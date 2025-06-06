@@ -40,7 +40,7 @@ func (r *IfVxlanResource) Metadata(ctx context.Context, req resource.MetadataReq
 
 func (r *IfVxlanResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	attributes := commonInterfaceSchema()
-	attributes["vid"] = schema.Int64Attribute{
+	attributes["vni"] = schema.Int64Attribute{
 		Required: true,
 		PlanModifiers: []planmodifier.Int64{
 			int64planmodifier.RequiresReplace(),
@@ -74,17 +74,17 @@ func convertIfVxlanResourceModel(ctx context.Context, getter Getter) (*models.If
 	}
 	tflog.Debug(ctx, "did base conversion successfully")
 	tflog.Debug(ctx, spew.Sdump(resource))
-	if resource.Vid.IsUnknown() {
-		diags.AddError("Missing Vid", "Vid is missing")
+	if resource.Vni.IsUnknown() {
+		diags.AddError("Missing Vni", "Vni is missing")
 	}
-	if resource.Vid.IsNull() {
-		tflog.Error(ctx, "Vid is null")
+	if resource.Vni.IsNull() {
+		tflog.Error(ctx, "Vni is null")
 	}
-	tflog.Debug(ctx, fmt.Sprintf("will convert vid %d", resource.Vid.ValueInt64()))
+	tflog.Debug(ctx, fmt.Sprintf("will convert vni %d", resource.Vni.ValueInt64()))
 
 	internal := &linuxhost_client.IfVxlan{
 		IfCommon: *internalBase,
-		Vid:      uint32(resource.Vid.ValueInt64()),
+		Vni:      uint32(resource.Vni.ValueInt64()),
 		Port:     uint32(resource.Port.ValueInt32()),
 	}
 
@@ -94,7 +94,7 @@ func convertVxlanIf(m *models.IfCommonResourceModel, a *linuxhost_client.Adapter
 	rm := &models.IfVxlanResourceModel{
 		IfCommonResourceModel: *m,
 	}
-	rm.Vid = int64OrNull(a.Vid)
+	rm.Vni = int64OrNull(a.Vni)
 	rm.Port = int32OrNull(a.Port)
 	return rm
 }

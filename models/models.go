@@ -34,7 +34,7 @@ type IsIfResourceModel interface {
 }
 type IfVxlanResourceModel struct {
 	IfCommonResourceModel
-	Vid  types.Int64 `tfsdk:"vid"`
+	Vni  types.Int64 `tfsdk:"vni"`
 	Port types.Int32 `tfsdk:"port"`
 }
 
