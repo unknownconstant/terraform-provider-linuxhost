@@ -44,6 +44,16 @@ func (m *IfVxlanResourceModel) GetCommon() *IfCommonResourceModel {
 	return &m.IfCommonResourceModel
 }
 
+type IfBridgeResourceModel struct {
+	IfCommonResourceModel
+}
+
+var _ IsIfResourceModel = &IfBridgeResourceModel{}
+
+func (m *IfBridgeResourceModel) GetCommon() *IfCommonResourceModel {
+	return &m.IfCommonResourceModel
+}
+
 type NetowrkInterfaceIPAssignmentModel struct {
 	InterfaceName types.String `tfsdk:"interface_name"`
 	IPv4          types.String `tfsdk:"ipv4"`
