@@ -23,6 +23,27 @@ func (r *NetworkInterfaceResourceModel) UpString() string {
 	return str
 }
 
+type IfCommonResourceModel struct {
+	Name  types.String `tfsdk:"name"`
+	Mac   types.String `tfsdk:"mac"`
+	IP4s  types.Set    `tfsdk:"ipv4"`
+	State types.String `tfsdk:"state"`
+}
+type IsIfResourceModel interface {
+	GetCommon() *IfCommonResourceModel
+}
+type IfVxlanResourceModel struct {
+	IfCommonResourceModel
+	Vid  types.Int64 `tfsdk:"vid"`
+	Port types.Int32 `tfsdk:"port"`
+}
+
+var _ IsIfResourceModel = &IfVxlanResourceModel{}
+
+func (m *IfVxlanResourceModel) GetCommon() *IfCommonResourceModel {
+	return &m.IfCommonResourceModel
+}
+
 type NetowrkInterfaceIPAssignmentModel struct {
 	InterfaceName types.String `tfsdk:"interface_name"`
 	IPv4          types.String `tfsdk:"ipv4"`

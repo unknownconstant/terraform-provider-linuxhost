@@ -110,6 +110,7 @@ func (p *linuxHostProvider) Resources(ctx context.Context) []func() resource.Res
 		NewUserResource,
 		NewGroupResource,
 		NewCaCertificateResource,
+		NewIfVxlanResource,
 	}
 }
 

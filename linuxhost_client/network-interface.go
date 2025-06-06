@@ -18,6 +18,18 @@ type NetworkInterface struct {
 	VLAN_id         int
 }
 
+type IfCommon struct {
+	Name  string
+	Mac   string
+	State string
+
+	IPv4 []models.IPWithSubnet
+	IPv6 []models.IPWithSubnet
+}
+type IsIf interface {
+	GetCommon() *IfCommon
+}
+
 func CreateInterface(connectedClient *SSHClientContext, adapter *NetworkInterface) (*NetworkInterface, error) {
 	fmt.Println("adding interface")
 	if connectedClient == nil {
@@ -108,6 +120,8 @@ type AdapterInfo struct {
 	IPv6            []models.IPWithSubnet
 	Type            string
 	Vlan            *int
+	Vid             *int64
+	Port            *int32
 	ParentInterface *string
 	DHCP            *string
 }
@@ -190,6 +204,7 @@ func ParseAdapters(ipOutput string) []AdapterInfo {
 	upRegex := regexp.MustCompile(`state (UP|DOWN|UNKNOWN)`)
 	noArpRegex := regexp.MustCompile(`<.*(NOARP).*>`)
 	vlanRegex := regexp.MustCompile(`vlan protocol 802\.1Q id (\d+)`)
+	vxlanRegex := regexp.MustCompile(`vxlan id (\d+).*dstport (\d+)`)
 	parentInterfaceRegex := regexp.MustCompile(`@([^:]+):`)
 
 	// Split output into lines
@@ -277,6 +292,22 @@ func ParseAdapters(ipOutput string) []AdapterInfo {
 			fmt.Println("vlan: " + match[1])
 		}
 
+		// Match vxlan
+		if match := vxlanRegex.FindStringSubmatch(line); match != nil {
+			vid, err := strconv.ParseInt(match[1], 10, 64)
+			if err != nil {
+				fmt.Println("Error converting vid str to int")
+			}
+			currentAdapter.Vid = &vid
+			port, err := strconv.ParseInt(match[2], 10, 64)
+			if err != nil {
+				fmt.Println("Error converting port str to int")
+			}
+			p := int32(port)
+			currentAdapter.Port = &p
+			currentAdapter.Type = "vxlan"
+			fmt.Println("vxlan: " + match[1])
+		}
 	}
 
 	// Add the last adapter if any

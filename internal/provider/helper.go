@@ -56,6 +56,39 @@ func numberOrNull(value interface{}) types.Number {
 	}
 }
 
+func int64OrNull(value interface{}) types.Int64 {
+	if(value == nil) {
+		return types.Int64Null()
+	}
+	switch v := value.(type) {
+	case int64:
+		return types.Int64Value(v)
+	case *int64:
+		if v == nil {
+			return types.Int64Null()
+		}
+		return types.Int64Value(*v)
+	default:
+		return types.Int64Null()
+	}
+}
+func int32OrNull(value interface{}) types.Int32 {
+	if(value == nil) {
+		return types.Int32Null()
+	}
+	switch v := value.(type) {
+	case int32:
+		return types.Int32Value(v)
+	case *int32:
+		if v == nil {
+			return types.Int32Null()
+		}
+		return types.Int32Value(*v)
+	default:
+		return types.Int32Null()
+	}
+}
+
 type ReadableResource[M any] struct {
 	Equal        func(A *M, B *M) bool
 	New          func(current *M, target *M) M
