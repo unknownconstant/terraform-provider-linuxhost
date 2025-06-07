@@ -33,9 +33,23 @@ type IfCommonResourceModel struct {
 type IfBridgeMemberResourceModel struct {
 	Name types.String `tfsdk:"name"`
 }
+
 type IsIfResourceModel interface {
 	GetCommon() *IfCommonResourceModel
 }
+
+// Bridge
+type IfBridgeResourceModel struct {
+	IfCommonResourceModel
+}
+
+var _ IsIfResourceModel = &IfBridgeResourceModel{}
+
+func (m *IfBridgeResourceModel) GetCommon() *IfCommonResourceModel {
+	return &m.IfCommonResourceModel
+}
+
+// VXLAN
 type IfVxlanResourceModel struct {
 	IfCommonResourceModel
 	Vni  types.Int64 `tfsdk:"vni"`
@@ -45,16 +59,6 @@ type IfVxlanResourceModel struct {
 var _ IsIfResourceModel = &IfVxlanResourceModel{}
 
 func (m *IfVxlanResourceModel) GetCommon() *IfCommonResourceModel {
-	return &m.IfCommonResourceModel
-}
-
-type IfBridgeResourceModel struct {
-	IfCommonResourceModel
-}
-
-var _ IsIfResourceModel = &IfBridgeResourceModel{}
-
-func (m *IfBridgeResourceModel) GetCommon() *IfCommonResourceModel {
 	return &m.IfCommonResourceModel
 }
 
