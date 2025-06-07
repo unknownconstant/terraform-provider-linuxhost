@@ -34,7 +34,6 @@ jobs:
           gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.PASSPHRASE }}
           fingerprint: "B29A388B6227A8B6C428AE330AAF032F804A981D"
-      - run: gpg --list-secret-keys --with-keygrip
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@9ed2f89a662bf1735a48bc8557fd212fa902bebf # v6.1.0
