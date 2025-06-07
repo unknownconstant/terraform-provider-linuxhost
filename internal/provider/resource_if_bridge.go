@@ -46,7 +46,7 @@ func (r *IfBridgeResource) Configure(ctx context.Context, req resource.Configure
 
 func convertIfBridgeResourceModel(ctx context.Context, getter Getter) (*models.IfBridgeResourceModel, *linuxhost_client.IfBridge, *diag.Diagnostics) {
 	tflog.Debug(ctx, "converting IfBridgeResourceModel")
-	resource, internalBase, diags := ConvertIfResourceModel[*models.IfBridgeResourceModel](ctx, getter)
+	resource, internalBase, diags := ExtractIfResourceModel[*models.IfBridgeResourceModel](ctx, getter)
 	if diags.HasError() {
 		tflog.Debug(ctx, "Error converting IfBridgeResourceModel")
 		return nil, nil, diags
@@ -87,8 +87,8 @@ func (r *IfBridgeResource) Create(ctx context.Context, req resource.CreateReques
 		return
 	}
 
-	resp.Diagnostics.Append(ReadSingleIf(
-		r, resourceModel, ctx, &resp.State,
+	resp.Diagnostics.Append(IfToState(
+		r.hostData, resourceModel, ctx, &resp.State,
 		convertBridgeIf)...)
 }
 
@@ -100,8 +100,8 @@ func (r *IfBridgeResource) Read(ctx context.Context, req resource.ReadRequest, r
 		return
 	}
 
-	resp.Diagnostics.Append(ReadSingleIf(
-		r, resourceModel, ctx, &resp.State,
+	resp.Diagnostics.Append(IfToState(
+		r.hostData, resourceModel, ctx, &resp.State,
 		convertBridgeIf)...)
 }
 
@@ -114,7 +114,7 @@ func (r *IfBridgeResource) Update(ctx context.Context, req resource.UpdateReques
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	UpdateIf(r, desired, state, ctx, &resp.State)
+	UpdateIf(r.hostData, desired, state, ctx, &resp.State)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, desiredM)...)
 
@@ -126,6 +126,6 @@ func (r *IfBridgeResource) Delete(ctx context.Context, req resource.DeleteReques
 
 	resourceModel, _, diags := convertIfBridgeResourceModel(ctx, &req.State)
 	resp.Diagnostics.Append(*diags...)
-	linuxhost_client.DeleteInterface(r.hostData.Client, resourceModel.Name.String())
+	linuxhost_client.DeleteInterface(r.hostData.Client, resourceModel.Name.ValueString())
 
 }

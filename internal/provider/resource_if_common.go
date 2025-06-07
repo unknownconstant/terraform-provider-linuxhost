@@ -5,7 +5,6 @@ import (
 	"terraform-provider-linuxhost/linuxhost_client"
 	models "terraform-provider-linuxhost/models"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -82,11 +81,34 @@ func SetModel[T any](ctx context.Context, model *T, s Setter) diag.Diagnostics {
 	return s.Set(ctx, model)
 }
 
-func ConvertIfResourceModel[T models.IsIfResourceModel](ctx context.Context, getter Getter) (T, *linuxhost_client.IfCommon, *diag.Diagnostics) {
+func BuildIfInternalCommon(resource models.IsIfResourceModel, diags *diag.Diagnostics) *linuxhost_client.IfCommon {
+	common := resource.GetCommon()
+	internal := &linuxhost_client.IfCommon{}
+
+	if common.Name.IsUnknown() || common.Name.IsNull() {
+		diags.AddError("Missing name", "The 'name' field is required.")
+	} else {
+		internal.Name = common.Name.ValueString()
+	}
+
+	if common.State.IsUnknown() || common.State.IsNull() {
+		internal.State = ""
+	} else {
+		internal.State = common.State.ValueString()
+	}
+
+	if common.Bridge != nil {
+		internal.BridgeMember = &linuxhost_client.IfBridgeMember{
+			Name: common.Bridge.Name.ValueString(),
+		}
+	}
+	return internal
+}
+
+func ExtractIfResourceModel[T models.IsIfResourceModel](ctx context.Context, getter Getter) (T, *linuxhost_client.IfCommon, *diag.Diagnostics) {
 	var full T
 	var diags diag.Diagnostics
 
-	// diags = req.Plan.Get(ctx, &full)
 	diags = GetModel(ctx, &full, getter)
 	if diags.HasError() {
 		tflog.Error(ctx, "Error getting plan")
@@ -95,116 +117,84 @@ func ConvertIfResourceModel[T models.IsIfResourceModel](ctx context.Context, get
 
 	tflog.Debug(ctx, "Got plan")
 
-	tflog.Debug(ctx, spew.Sdump(full))
-	c := full.GetCommon()
-
-	internal := &linuxhost_client.IfCommon{}
-
-	if c.Name.IsUnknown() || c.Name.IsNull() {
-		diags.AddError("Missing name", "The 'name' field is required.")
-	} else {
-		internal.Name = c.Name.ValueString()
-	}
-
-	if c.State.IsUnknown() || c.State.IsNull() {
-		internal.State = ""
-	} else {
-		internal.State = c.State.ValueString()
-	}
-
-	if c.Bridge != nil {
-		internal.BridgeMember = &linuxhost_client.IfBridgeMember{
-			Name: c.Bridge.Name.ValueString(),
-		}
-	}
-
-	// if c.Mac.IsUnknown() || c.Mac.IsNull() {
-	// 	internal.Mac = ""
-	// } else {
-	// 	internal.Mac = c.Mac.ValueString()
-	// }
-	// if c.IP4s.IsUnknown() || c.IP4s.IsNull() {
-	// 	internal.IPv4 = []models.IPWithSubnet{}
-	// 	} else {
-	// 	internal.IPv4 = []models.IPWithSubnet{}
-	// }
+	internal := BuildIfInternalCommon(full, &diags)
 
 	return full, internal, &diags
 }
 
-// func CommonIfReadBack[RM models.IsIfResourceModel, R IsLinuxhostCommonResource](r R)
+func BuildIfResourceModelFromInternal(
+	// adapters, _ = linuxhost_client.ReadAdapters(hostData)
+	ctx context.Context, adapters *linuxhost_client.AdapterInfoSlice, interfaceDescription *linuxhost_client.AdapterInfo) (*models.IfCommonResourceModel, diag.Diagnostics) {
 
-func findBridge(adapters []linuxhost_client.AdapterInfo, bridgeId string) *linuxhost_client.AdapterInfo {
-	for _, a := range adapters {
-		if a.BridgeInfo == nil {
-			continue
-		}
-		if a.BridgeInfo.BridgeId != bridgeId {
-			continue
-		}
-		return &a
+	diags := diag.Diagnostics{}
+
+	if interfaceDescription == nil {
+		return nil, diags
 	}
-	return nil
+	tflog.Debug(ctx, "Got adapter "+interfaceDescription.Name)
+
+	// Set State
+	interfaceState := "down"
+	if interfaceDescription.Up == true {
+		interfaceState = "up"
+	}
+
+	// Set IPv4
+	ipv4Strings := []string{}
+	for _, ipPair := range interfaceDescription.IPv4 {
+		ipv4Strings = append(ipv4Strings, ipPair.IP+"/"+ipPair.Subnet)
+	}
+	ips, _ := types.SetValueFrom(ctx, types.StringType, ipv4Strings)
+	interfaceIPv4s, _ := types.SetValueFrom(ctx, types.StringType, ips)
+
+	commonResourceModel := &models.IfCommonResourceModel{
+		Name:  types.StringValue(interfaceDescription.Name),
+		Mac:   types.StringValue(interfaceDescription.MAC),
+		State: types.StringValue(interfaceState),
+		IP4s:  interfaceIPv4s,
+	}
+	if interfaceDescription.DesignatedBridge != nil {
+		// Find the bridge
+		bridge := adapters.GetBridgeId(*interfaceDescription.DesignatedBridge)
+		if bridge == nil {
+			diags.AddError(("Could not find bridge for " + interfaceDescription.Name), "Could not find bridge for "+interfaceDescription.Name)
+			return nil, diags
+
+		}
+		commonResourceModel.Bridge = &models.IfBridgeMemberResourceModel{
+			Name: types.StringValue(bridge.Name),
+		}
+	}
+	return commonResourceModel, diags
 }
 
-func ReadSingleIf[RM models.IsIfResourceModel, R IsLinuxhostIFResource](
-	resource R,
+func IfToState[RM models.IsIfResourceModel](
+	hostData *linuxhost_client.HostData,
 	resourceModel RM,
 	ctx context.Context,
 	setter Setter,
-	provideFinalState func(m *models.IfCommonResourceModel, a *linuxhost_client.AdapterInfo) RM) diag.Diagnostics {
-	adapters, _ := linuxhost_client.ReadAdapters(resource.GetHostData())
+	provideFinalState func(m *models.IfCommonResourceModel, a *linuxhost_client.AdapterInfo) RM,
+) diag.Diagnostics {
+	adapters, _ := linuxhost_client.ReadAdapters(hostData)
+	interfaceDescription := adapters.GetByName(resourceModel.GetCommon().Name.ValueString())
+	commonResourceModel, diags := BuildIfResourceModelFromInternal(ctx, &adapters, interfaceDescription)
 
-	for _, a := range adapters {
-		tflog.Debug(ctx, "Got adapter "+a.Name)
-		if a.Name != resourceModel.GetCommon().Name.ValueString() {
-			continue
-		}
-
-		// Set State
-		state := "down"
-		if a.Up == true {
-			state = "up"
-		}
-
-		// Set IPv4
-		ipv4Strings := []string{}
-		for _, ipPair := range a.IPv4 {
-			ipv4Strings = append(ipv4Strings, ipPair.IP+"/"+ipPair.Subnet)
-		}
-		ips, _ := types.SetValueFrom(ctx, types.StringType, ipv4Strings)
-		i, _ := types.SetValueFrom(ctx, types.StringType, ips)
-
-		m := &models.IfCommonResourceModel{
-			Name:  types.StringValue(a.Name),
-			Mac:   types.StringValue(a.MAC),
-			State: types.StringValue(state),
-			IP4s:  i,
-		}
-		if a.DesignatedBridge != nil {
-			// Find the bridge
-			bridge := findBridge(adapters, *a.DesignatedBridge)
-			if bridge == nil {
-				var d diag.Diagnostics = diag.Diagnostics{}
-				d.AddError(("Could not find bridge for " + a.Name), "Could not find bridge for "+a.Name)
-				return d
-			}
-			m.Bridge = &models.IfBridgeMemberResourceModel{
-				Name: types.StringValue(bridge.Name),
-			}
-		}
-		finalModel := provideFinalState(m, &a)
-		return setter.Set(ctx, finalModel)
-		// return &diag
-		// resp.Diagnostics.Append(resp.State.Set(ctx, finalModel)...)
+	if diags.HasError() {
+		return diags
 	}
-	setter.RemoveResource(ctx)
-	var d diag.Diagnostics
-	return d
+
+	if commonResourceModel == nil {
+		setter.RemoveResource(ctx)
+		return diags
+	}
+
+	finalModel := provideFinalState(commonResourceModel, interfaceDescription)
+	return setter.Set(ctx, finalModel)
+
 }
 
-func UpdateIf[M linuxhost_client.IsIf, R IsLinuxhostIFResource](
-	resource R,
+func UpdateIf[M linuxhost_client.IsIf](
+	hostData *linuxhost_client.HostData,
 	modelDesired M,
 	modelState M,
 	ctx context.Context,
@@ -213,10 +203,10 @@ func UpdateIf[M linuxhost_client.IsIf, R IsLinuxhostIFResource](
 	desired := modelDesired.GetCommon()
 	state := modelState.GetCommon()
 	if state.State != desired.State {
-		linuxhost_client.IfSetState(resource.GetHostData().Client, modelDesired)
+		linuxhost_client.IfSetState(hostData.Client, modelDesired)
 	}
 	if &state.BridgeMember != &desired.BridgeMember {
 		tflog.Info(ctx, "Bridge member changed")
-		linuxhost_client.IfSetBridgeMaster(resource.GetHostData().Client, modelDesired)
+		linuxhost_client.IfSetBridgeMaster(hostData.Client, modelDesired)
 	}
 }

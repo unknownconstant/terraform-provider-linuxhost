@@ -67,7 +67,7 @@ func convertIfVxlanResourceModel(ctx context.Context, getter Getter) (*models.If
 	// resp.Diagnostics.Append(req.Plan.Get(ctx, &resourceModel)...)
 	tflog.Debug(ctx, "converting IfVxlanResourceModel")
 
-	resource, internalBase, diags := ConvertIfResourceModel[*models.IfVxlanResourceModel](ctx, getter)
+	resource, internalBase, diags := ExtractIfResourceModel[*models.IfVxlanResourceModel](ctx, getter)
 	if diags.HasError() {
 		tflog.Debug(ctx, "Error converting IfVxlanResourceModel")
 		return nil, nil, diags
@@ -120,11 +120,15 @@ func (r *IfVxlanResource) Create(ctx context.Context, req resource.CreateRequest
 		resp.Diagnostics.AddError("Failed creating vxlan", err.Error())
 		return
 	}
+	r.hostData.Interfaces.Clear()
+	if r.hostData.Interfaces != nil {
+		resp.Diagnostics.AddError("Failed to delete Interfaces from cache", "Failed to delete interfaces from cache")
+	}
 
 	diags.AddWarning("Resource vxlan created", resourceModel.Name.ValueString())
 
-	resp.Diagnostics.Append(ReadSingleIf[*models.IfVxlanResourceModel](
-		r, resourceModel, ctx, &resp.State,
+	resp.Diagnostics.Append(IfToState(
+		r.hostData, resourceModel, ctx, &resp.State,
 		convertVxlanIf)...)
 
 	// CommonIf(&data, resp.Diagnostics)
@@ -154,7 +158,7 @@ func (r *IfVxlanResource) Update(ctx context.Context, req resource.UpdateRequest
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	UpdateIf(r, desired, state, ctx, &resp.State)
+	UpdateIf(r.hostData, desired, state, ctx, &resp.State)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, desiredM)...)
 
@@ -168,8 +172,7 @@ func (r *IfVxlanResource) Delete(ctx context.Context, req resource.DeleteRequest
 
 	resourceModel, _, diags := convertIfVxlanResourceModel(ctx, &req.State)
 	resp.Diagnostics.Append(*diags...)
-	linuxhost_client.DeleteInterface(r.hostData.Client, resourceModel.Name.String())
-
+	linuxhost_client.DeleteInterface(r.hostData.Client, resourceModel.Name.ValueString())
 }
 
 func (r *IfVxlanResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -180,8 +183,8 @@ func (r *IfVxlanResource) Read(ctx context.Context, req resource.ReadRequest, re
 		return
 	}
 
-	resp.Diagnostics.Append(ReadSingleIf(
-		r, resourceModel, ctx, &resp.State,
+	resp.Diagnostics.Append(IfToState(
+		r.hostData, resourceModel, ctx, &resp.State,
 		convertVxlanIf)...)
 
 }

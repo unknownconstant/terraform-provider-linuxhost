@@ -132,8 +132,36 @@ type AdapterInfo struct {
 	DesignatedBridge *string
 }
 
+type AdapterInfoSlice []*AdapterInfo
+
+func (l *AdapterInfoSlice) GetBridgeId(bridgeId string) *AdapterInfo {
+	for _, a := range *l {
+		if a.BridgeInfo == nil {
+			continue
+		}
+		if a.BridgeInfo.BridgeId != bridgeId {
+			continue
+		}
+		return a
+	}
+	return nil
+}
+
+func (l *AdapterInfoSlice) GetByName(name string) *AdapterInfo {
+	for _, a := range *l {
+		if a.Name == name {
+			return a
+		}
+	}
+	return nil
+}
+
+func (l *AdapterInfoSlice) Clear() {
+	*l = nil
+}
+
 type BridgeInfo struct {
-	BridgeId       string
+	BridgeId      string
 	VlanFiltering bool
 }
 
@@ -162,13 +190,13 @@ func AdapterInfoSliceToPointers(items []AdapterInfo) []*AdapterInfo {
 
 type HostData struct {
 	Client     *SSHClientContext
-	Interfaces []AdapterInfo
+	Interfaces AdapterInfoSlice
 	Users      []models.UserModel
 	Groups     []models.GroupModel
 	Hostname   *string
 }
 
-func RefreshAdapters(hostData *HostData) ([]AdapterInfo, error) {
+func RefreshAdapters(hostData *HostData) (AdapterInfoSlice, error) {
 	stmt := "ip -d a"
 	fmt.Println(stmt)
 	result, err := hostData.Client.ExecuteCommand(stmt)
@@ -180,8 +208,8 @@ func RefreshAdapters(hostData *HostData) ([]AdapterInfo, error) {
 
 	// fmt.Println("Refreshing DHCP")
 	// fmt.Println(adapterInfo)
-	AI := AdapterInfoSliceToPointers(adapterInfo)
-	err = RefreshDhcp(hostData, AI)
+	// AI := AdapterInfoSliceToPointers(adapterInfo)
+	err = RefreshDhcp(hostData, adapterInfo)
 	// fmt.Println("Finished refreshing DHCP")
 	// for i, _ := range adapterInfo {
 	// fmt.Println("---Done")
@@ -194,9 +222,10 @@ func RefreshAdapters(hostData *HostData) ([]AdapterInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	return hostData.Interfaces, nil
+	i := hostData.Interfaces
+	return AdapterInfoSlice(i), nil
 }
-func ReadAdapters(hostData *HostData) ([]AdapterInfo, error) {
+func ReadAdapters(hostData *HostData) (AdapterInfoSlice, error) {
 	if hostData.Interfaces == nil {
 		return RefreshAdapters(hostData)
 	}
@@ -204,8 +233,8 @@ func ReadAdapters(hostData *HostData) ([]AdapterInfo, error) {
 }
 
 // parseAdapters extracts adapter information from the `ip a` output
-func ParseAdapters(ipOutput string) []AdapterInfo {
-	var adapters []AdapterInfo
+func ParseAdapters(ipOutput string) AdapterInfoSlice {
+	var adapters AdapterInfoSlice
 
 	// Regular expressions to match interface lines and IP addresses with subnets
 	adapterRegex := regexp.MustCompile(`^\d+: ([a-zA-Z0-9\._-]+)[a-zA-Z0-9@\.-]*:`)
@@ -232,7 +261,7 @@ func ParseAdapters(ipOutput string) []AdapterInfo {
 		if match := adapterRegex.FindStringSubmatch(line); match != nil {
 			if currentAdapter != nil {
 				// Save the previous adapter
-				adapters = append(adapters, *currentAdapter)
+				adapters = append(adapters, currentAdapter)
 			}
 
 			// Start a new adapter
@@ -332,7 +361,7 @@ func ParseAdapters(ipOutput string) []AdapterInfo {
 		if match := bridgeInfoRegex.FindStringSubmatch(line); match != nil {
 			currentAdapter.Type = "bridge"
 			currentAdapter.BridgeInfo = &BridgeInfo{
-				BridgeId:       match[2],
+				BridgeId:      match[2],
 				VlanFiltering: match[1] == "1",
 			}
 			// currentAdapter.BridgeId = match[2]
@@ -342,7 +371,7 @@ func ParseAdapters(ipOutput string) []AdapterInfo {
 
 	// Add the last adapter if any
 	if currentAdapter != nil {
-		adapters = append(adapters, *currentAdapter)
+		adapters = append(adapters, currentAdapter)
 	}
 
 	return adapters
