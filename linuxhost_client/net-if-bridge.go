@@ -19,7 +19,7 @@ func CreateIfBridge(connectedClient *SSHClientContext, iface *IfBridge) (*IfBrid
 		return nil, err
 	}
 	fmt.Println(result)
-	if err := IfSetState(connectedClient, iface); err != nil {
+	if err := IfSetCommon(connectedClient, iface); err != nil {
 		return nil, *err
 	}
 	return iface, nil

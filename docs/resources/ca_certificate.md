@@ -17,8 +17,8 @@ A trusted root certificate on the host
 
 ### Required
 
-- `name` (String)
-- `source` (String)
+- `name` (String) Human-readable name for the certificate, also used as its filename
+- `source` (String) The certificate source location. For a file, a standard unix path. Or, https://example.com/certificate.pem.
 
 ### Read-Only
 

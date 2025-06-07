@@ -46,6 +46,14 @@ func commonInterfaceSchema() map[string]schema.Attribute {
 				stringvalidator.OneOf("up", "down"),
 			},
 		},
+		"bridge": schema.SingleNestedAttribute{
+			Optional: true,
+			Attributes: map[string]schema.Attribute{
+				"name": schema.StringAttribute{
+					Required: true,
+				},
+			},
+		},
 	}
 }
 
@@ -104,6 +112,12 @@ func ConvertIfResourceModel[T models.IsIfResourceModel](ctx context.Context, get
 		internal.State = c.State.ValueString()
 	}
 
+	if c.Bridge != nil {
+		internal.BridgeMember = &linuxhost_client.IfBridgeMember{
+			Name: c.Bridge.Name.ValueString(),
+		}
+	}
+
 	// if c.Mac.IsUnknown() || c.Mac.IsNull() {
 	// 	internal.Mac = ""
 	// } else {
@@ -119,6 +133,19 @@ func ConvertIfResourceModel[T models.IsIfResourceModel](ctx context.Context, get
 }
 
 // func CommonIfReadBack[RM models.IsIfResourceModel, R IsLinuxhostCommonResource](r R)
+
+func findBridge(adapters []linuxhost_client.AdapterInfo, bridgeId string) *linuxhost_client.AdapterInfo {
+	for _, a := range adapters {
+		if a.BridgeInfo == nil {
+			continue
+		}
+		if a.BridgeInfo.BridgeId != bridgeId {
+			continue
+		}
+		return &a
+	}
+	return nil
+}
 
 func ReadSingleIf[RM models.IsIfResourceModel, R IsLinuxhostIFResource](
 	resource R,
@@ -154,6 +181,18 @@ func ReadSingleIf[RM models.IsIfResourceModel, R IsLinuxhostIFResource](
 			State: types.StringValue(state),
 			IP4s:  i,
 		}
+		if a.DesignatedBridge != nil {
+			// Find the bridge
+			bridge := findBridge(adapters, *a.DesignatedBridge)
+			if bridge == nil {
+				var d diag.Diagnostics = diag.Diagnostics{}
+				d.AddError(("Could not find bridge for " + a.Name), "Could not find bridge for "+a.Name)
+				return d
+			}
+			m.Bridge = &models.IfBridgeMemberResourceModel{
+				Name: types.StringValue(bridge.Name),
+			}
+		}
 		finalModel := provideFinalState(m, &a)
 		return setter.Set(ctx, finalModel)
 		// return &diag
@@ -175,5 +214,9 @@ func UpdateIf[M linuxhost_client.IsIf, R IsLinuxhostIFResource](
 	state := modelState.GetCommon()
 	if state.State != desired.State {
 		linuxhost_client.IfSetState(resource.GetHostData().Client, modelDesired)
+	}
+	if &state.BridgeMember != &desired.BridgeMember {
+		tflog.Info(ctx, "Bridge member changed")
+		linuxhost_client.IfSetBridgeMaster(resource.GetHostData().Client, modelDesired)
 	}
 }

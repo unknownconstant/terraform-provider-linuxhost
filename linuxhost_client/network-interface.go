@@ -19,12 +19,16 @@ type NetworkInterface struct {
 }
 
 type IfCommon struct {
-	Name  string
-	Mac   string
-	State string
+	Name         string
+	Mac          string
+	State        string
+	BridgeMember *IfBridgeMember
 
 	IPv4 []models.IPWithSubnet
 	IPv6 []models.IPWithSubnet
+}
+type IfBridgeMember struct {
+	Name string
 }
 type IsIf interface {
 	GetCommon() *IfCommon
@@ -113,17 +117,24 @@ func DeleteIP(connectedClient *SSHClientContext, adapterName string, ip string) 
 }
 
 type AdapterInfo struct {
-	Name            string
-	MAC             string
-	Up              bool
-	IPv4            []models.IPWithSubnet
-	IPv6            []models.IPWithSubnet
-	Type            string
-	Vlan            *int
-	Vni             *int64
-	Port            *int32
-	ParentInterface *string
-	DHCP            *string
+	Name             string
+	MAC              string
+	Up               bool
+	IPv4             []models.IPWithSubnet
+	IPv6             []models.IPWithSubnet
+	Type             string
+	Vlan             *int
+	Vni              *int64
+	Port             *int32
+	ParentInterface  *string
+	DHCP             *string
+	BridgeInfo       *BridgeInfo
+	DesignatedBridge *string
+}
+
+type BridgeInfo struct {
+	BridgeId       string
+	VlanFiltering bool
 }
 
 func AdapterInfoListToMap(items []*AdapterInfo) map[string]*AdapterInfo {
@@ -207,6 +218,9 @@ func ParseAdapters(ipOutput string) []AdapterInfo {
 	vxlanRegex := regexp.MustCompile(`vxlan id (\d+).*dstport (\d+)`)
 	parentInterfaceRegex := regexp.MustCompile(`@([^:]+):`)
 
+	bridgeInfoRegex := regexp.MustCompile(`bridge.*vlan_filtering ([01]).*bridge_id ([^\s]+)`)
+	bridgeMemberRegex := regexp.MustCompile(`bridge_slave.*designated_bridge ([^\s]+)`)
+
 	// Split output into lines
 	lines := strings.Split(ipOutput, "\n")
 
@@ -281,6 +295,12 @@ func ParseAdapters(ipOutput string) []AdapterInfo {
 			fmt.Println("MAC: " + match[1])
 		}
 
+		if match := bridgeMemberRegex.FindStringSubmatch(line); match != nil {
+			currentAdapter.DesignatedBridge = &match[1]
+		}
+
+		// Interface specific
+
 		// Match VLAN
 		if match := vlanRegex.FindStringSubmatch(line); match != nil {
 			res, err := strconv.Atoi(match[1])
@@ -307,6 +327,16 @@ func ParseAdapters(ipOutput string) []AdapterInfo {
 			currentAdapter.Port = &p
 			currentAdapter.Type = "vxlan"
 			fmt.Println("vxlan: " + match[1])
+		}
+
+		if match := bridgeInfoRegex.FindStringSubmatch(line); match != nil {
+			currentAdapter.Type = "bridge"
+			currentAdapter.BridgeInfo = &BridgeInfo{
+				BridgeId:       match[2],
+				VlanFiltering: match[1] == "1",
+			}
+			// currentAdapter.BridgeId = match[2]
+			// fmt.Println("bridgeId: " + match[2])
 		}
 	}
 

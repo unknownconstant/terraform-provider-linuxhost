@@ -24,10 +24,14 @@ func (r *NetworkInterfaceResourceModel) UpString() string {
 }
 
 type IfCommonResourceModel struct {
-	Name  types.String `tfsdk:"name"`
-	Mac   types.String `tfsdk:"mac"`
-	IP4s  types.Set    `tfsdk:"ipv4"`
-	State types.String `tfsdk:"state"`
+	Name   types.String                 `tfsdk:"name"`
+	Mac    types.String                 `tfsdk:"mac"`
+	IP4s   types.Set                    `tfsdk:"ipv4"`
+	State  types.String                 `tfsdk:"state"`
+	Bridge *IfBridgeMemberResourceModel `tfsdk:"bridge"`
+}
+type IfBridgeMemberResourceModel struct {
+	Name types.String `tfsdk:"name"`
 }
 type IsIfResourceModel interface {
 	GetCommon() *IfCommonResourceModel
