@@ -268,7 +268,7 @@ func (r *NetworkInterfaceResource) Create(ctx context.Context, req resource.Crea
 			IP4s:            i,
 			Up:              types.BoolValue(s.Up),
 			Type:            types.StringValue(s.Type),
-			ParentInterface: stringOrNull(s.ParentInterface),
+			ParentInterface: stringOrNull(s.LinkedInterface),
 			DHCP:            stringOrNull(s.DHCP),
 			VLAN_id:         numberOrNull(s.Vlan),
 		}
@@ -319,7 +319,7 @@ func (r *NetworkInterfaceResource) Read(ctx context.Context, req resource.ReadRe
 			IP4s:            i,
 			Up:              types.BoolValue(s.Up),
 			Type:            types.StringValue(s.Type),
-			ParentInterface: stringOrNull(s.ParentInterface),
+			ParentInterface: stringOrNull(s.LinkedInterface),
 			DHCP:            stringOrNull(s.DHCP),
 			VLAN_id:         numberOrNull(s.Vlan),
 		}

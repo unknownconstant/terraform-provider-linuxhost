@@ -57,7 +57,7 @@ func numberOrNull(value interface{}) types.Number {
 }
 
 func int64OrNull(value interface{}) types.Int64 {
-	if(value == nil) {
+	if value == nil {
 		return types.Int64Null()
 	}
 	switch v := value.(type) {
@@ -73,10 +73,17 @@ func int64OrNull(value interface{}) types.Int64 {
 	}
 }
 func int32OrNull(value interface{}) types.Int32 {
-	if(value == nil) {
+	if value == nil {
 		return types.Int32Null()
 	}
 	switch v := value.(type) {
+	case uint32:
+		return types.Int32Value(int32(v))
+	case *uint32:
+		if v == nil {
+			return types.Int32Null()
+		}
+		return types.Int32Value(int32(*v))
 	case int32:
 		return types.Int32Value(v)
 	case *int32:

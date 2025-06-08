@@ -20,7 +20,7 @@ func commonInterfaceSchema() map[string]schema.Attribute {
 	return map[string]schema.Attribute{
 		"name": schema.StringAttribute{
 			Required:            true,
-			MarkdownDescription: "Example identifier",
+			MarkdownDescription: "The interface identifier, .e.g. 'eth0'",
 			PlanModifiers: []planmodifier.String{
 				stringplanmodifier.RequiresReplace(),
 			},
@@ -47,8 +47,10 @@ func commonInterfaceSchema() map[string]schema.Attribute {
 		},
 		"bridge": schema.SingleNestedAttribute{
 			Optional: true,
+			MarkdownDescription: "If specified, the bridge this interface is a member of.",
 			Attributes: map[string]schema.Attribute{
 				"name": schema.StringAttribute{
+					MarkdownDescription: "The name of the bridge, e.g. 'br0'",
 					Required: true,
 				},
 			},

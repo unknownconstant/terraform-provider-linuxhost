@@ -53,14 +53,29 @@ func (m *IfBridgeResourceModel) GetCommon() *IfCommonResourceModel {
 type IfVethPeerResourceModel struct {
 	IfCommonResourceModel
 }
+
 var _ IsIfResourceModel = &IfVethPeerResourceModel{}
+
 func (m *IfVethPeerResourceModel) GetCommon() *IfCommonResourceModel {
-	return & m.IfCommonResourceModel
+	return &m.IfCommonResourceModel
 }
 
 type IfVethPairResourceModel struct {
 	Local *IfVethPeerResourceModel `tfsdk:"local"`
 	Peer  *IfVethPeerResourceModel `tfsdk:"peer"`
+}
+
+// Vlan
+type IfVlanResourceModel struct {
+	IfCommonResourceModel
+	Vid    types.Int32  `tfsdk:"vid"`
+	Parent types.String `tfsdk:"parent"`
+}
+
+var _ IsIfResourceModel = &IfVlanResourceModel{}
+
+func (m *IfVlanResourceModel) GetCommon() *IfCommonResourceModel {
+	return &m.IfCommonResourceModel
 }
 
 // VXLAN

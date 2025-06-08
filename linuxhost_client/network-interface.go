@@ -126,9 +126,10 @@ type AdapterInfo struct {
 	Vlan             *int
 	Vni              *int64
 	Port             *int32
-	ParentInterface  *string
+	LinkedInterface  *string
 	DHCP             *string
 	BridgeInfo       *BridgeInfo
+	VlanInfo         *VlanInfo
 	DesignatedBridge *string
 }
 
@@ -193,6 +194,10 @@ type BridgeInfo struct {
 	BridgeId      string
 	VlanFiltering bool
 }
+type VlanInfo struct {
+	Vid    uint32
+	Parent string
+}
 
 func AdapterInfoListToMap(items []*AdapterInfo) map[string]*AdapterInfo {
 	result := make(map[string]*AdapterInfo, len(items)) // Preallocate map size for efficiency
@@ -235,17 +240,7 @@ func RefreshAdapters(hostData *HostData) (AdapterInfoSlice, error) {
 	fmt.Println("SSH RESULT", result)
 	adapterInfo := ParseAdapters(result)
 
-	// fmt.Println("Refreshing DHCP")
-	// fmt.Println(adapterInfo)
-	// AI := AdapterInfoSliceToPointers(adapterInfo)
 	err = RefreshDhcp(hostData, adapterInfo)
-	// fmt.Println("Finished refreshing DHCP")
-	// for i, _ := range adapterInfo {
-	// fmt.Println("---Done")
-	// fmt.Printf("Adapter: %p", &adapterInfo[i])
-	// fmt.Printf("Adapter: %p", AI[i])
-	// }
-	// fmt.Println(adapterInfo)
 
 	hostData.Interfaces = adapterInfo
 	if err != nil {
@@ -266,7 +261,7 @@ func ParseAdapters(ipOutput string) AdapterInfoSlice {
 	var adapters AdapterInfoSlice
 
 	// Regular expressions to match interface lines and IP addresses with subnets
-	adapterRegex := regexp.MustCompile(`^\d+: ([a-zA-Z0-9\._-]+)[a-zA-Z0-9@\.-]*:`)
+	adapterRegex := regexp.MustCompile(`^\d+: ([a-zA-Z0-9\._-]+)@?([a-zA-Z0-9\._-]+)?:`)
 	ipv4Regex := regexp.MustCompile(`inet (\d+\.\d+\.\d+\.\d+)/(\d+)`)
 	ipv6Regex := regexp.MustCompile(`inet6 ([a-fA-F0-9:]+)/(\d+)`)
 	macRegex := regexp.MustCompile(`(?:ether|loopback)\s*(([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2}))`)
@@ -274,7 +269,6 @@ func ParseAdapters(ipOutput string) AdapterInfoSlice {
 	noArpRegex := regexp.MustCompile(`<.*(NOARP).*>`)
 	vlanRegex := regexp.MustCompile(`vlan protocol 802\.1Q id (\d+)`)
 	vxlanRegex := regexp.MustCompile(`vxlan id (\d+).*dstport (\d+)`)
-	parentInterfaceRegex := regexp.MustCompile(`@([^:]+):`)
 
 	bridgeInfoRegex := regexp.MustCompile(`bridge.*vlan_filtering ([01]).*bridge_id ([^\s]+)`)
 	bridgeMemberRegex := regexp.MustCompile(`bridge_slave.*designated_bridge ([^\s]+)`)
@@ -296,13 +290,15 @@ func ParseAdapters(ipOutput string) AdapterInfoSlice {
 			// Start a new adapter
 			name := match[1]
 			fmt.Println("Interface name is " + name + ";")
-			// if idx := strings.Index(name, "@"); idx != -1 {
-			// 	name = name[:idx] // Remove any "@..." suffix
-			// }
 			currentAdapter = &AdapterInfo{
 				Name: name,
 				Up:   false,
 				Type: "unknown",
+			}
+
+			if len(match) > 1 {
+				currentAdapter.LinkedInterface = new(string)
+				*currentAdapter.LinkedInterface = match[2]
 			}
 
 			// Match Up Down
@@ -314,15 +310,6 @@ func ParseAdapters(ipOutput string) AdapterInfoSlice {
 			if match := noArpRegex.FindStringSubmatch(line); match != nil {
 				currentAdapter.Type = "dummy"
 			} else {
-			}
-
-			// Match base interface
-			if match := parentInterfaceRegex.FindStringSubmatch(line); match != nil {
-				fmt.Println("parentInterface is: \"" + match[1] + "\"")
-				if currentAdapter.ParentInterface == nil {
-					currentAdapter.ParentInterface = new(string)
-				}
-				*currentAdapter.ParentInterface = match[1]
 			}
 
 			continue
@@ -361,13 +348,26 @@ func ParseAdapters(ipOutput string) AdapterInfoSlice {
 
 		// Match VLAN
 		if match := vlanRegex.FindStringSubmatch(line); match != nil {
+			currentAdapter.Type = "vlan"
+			// Current
+			vid, err := strconv.ParseInt(match[1], 10, 64)
+			if err != nil {
+				fmt.Println("Error converting vid str to int")
+			}
+			currentAdapter.VlanInfo = &VlanInfo{
+				Vid:    uint32(vid),
+				Parent: *currentAdapter.LinkedInterface,
+			}
+
+			// Legacy
 			res, err := strconv.Atoi(match[1])
 			if err != nil {
 				fmt.Println("Error converting str to int")
 			}
+			if currentAdapter.Vlan == nil {
+				currentAdapter.Vlan = new(int)
+			}
 			currentAdapter.Vlan = &res
-			currentAdapter.Type = "vlan"
-			fmt.Println("vlan: " + match[1])
 		}
 
 		// Match vxlan
