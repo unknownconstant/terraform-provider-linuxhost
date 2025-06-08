@@ -23,10 +23,13 @@ A Veth interface pair
 <a id="nestedatt--local"></a>
 ### Nested Schema for `local`
 
+Required:
+
+- `name` (String) The interface identifier, .e.g. 'eth0'
+
 Optional:
 
-- `bridge` (Attributes) (see [below for nested schema](#nestedatt--local--bridge))
-- `name` (String) Example identifier
+- `bridge` (Attributes) If specified, the bridge this interface is a member of. (see [below for nested schema](#nestedatt--local--bridge))
 - `state` (String) Interface state. Valid options: 'up', 'down'.
 
 Read-Only:
@@ -39,17 +42,20 @@ Read-Only:
 
 Required:
 
-- `name` (String)
+- `name` (String) The name of the bridge, e.g. 'br0'
 
 
 
 <a id="nestedatt--peer"></a>
 ### Nested Schema for `peer`
 
+Required:
+
+- `name` (String) The interface identifier, .e.g. 'eth0'
+
 Optional:
 
-- `bridge` (Attributes) (see [below for nested schema](#nestedatt--peer--bridge))
-- `name` (String) Example identifier
+- `bridge` (Attributes) If specified, the bridge this interface is a member of. (see [below for nested schema](#nestedatt--peer--bridge))
 - `state` (String) Interface state. Valid options: 'up', 'down'.
 
 Read-Only:
@@ -62,4 +68,4 @@ Read-Only:
 
 Required:
 
-- `name` (String)
+- `name` (String) The name of the bridge, e.g. 'br0'
