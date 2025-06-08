@@ -19,7 +19,7 @@ import (
 func commonInterfaceSchema() map[string]schema.Attribute {
 	return map[string]schema.Attribute{
 		"name": schema.StringAttribute{
-			Optional:            true,
+			Required:            true,
 			MarkdownDescription: "Example identifier",
 			PlanModifiers: []planmodifier.String{
 				stringplanmodifier.RequiresReplace(),
