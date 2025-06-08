@@ -8,6 +8,7 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int32default"
@@ -90,7 +91,7 @@ func convertIfVxlanResourceModel(ctx context.Context, getter Getter) (*models.If
 
 	return resource, internal, diags
 }
-func convertVxlanIf(m *models.IfCommonResourceModel, a *linuxhost_client.AdapterInfo) *models.IfVxlanResourceModel {
+func convertVxlanIf(m *models.IfCommonResourceModel, a *linuxhost_client.AdapterInfo, all *linuxhost_client.AdapterInfoSlice) *models.IfVxlanResourceModel {
 	rm := &models.IfVxlanResourceModel{
 		IfCommonResourceModel: *m,
 	}
@@ -187,4 +188,8 @@ func (r *IfVxlanResource) Read(ctx context.Context, req resource.ReadRequest, re
 		r.hostData, resourceModel, ctx, &resp.State,
 		convertVxlanIf)...)
 
+}
+
+func (r *IfVxlanResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	resource.ImportStatePassthroughID(ctx, path.Root("name"), req, resp)
 }

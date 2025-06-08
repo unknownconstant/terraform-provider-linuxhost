@@ -155,7 +155,7 @@ func BuildIfResourceModelFromInternal(
 	}
 	if interfaceDescription.DesignatedBridge != nil {
 		// Find the bridge
-		bridge := adapters.GetBridgeId(*interfaceDescription.DesignatedBridge)
+		bridge := adapters.GetIsBridgeId(*interfaceDescription.DesignatedBridge)
 		if bridge == nil {
 			diags.AddError(("Could not find bridge for " + interfaceDescription.Name), "Could not find bridge for "+interfaceDescription.Name)
 			return nil, diags
@@ -173,7 +173,7 @@ func IfToState[RM models.IsIfResourceModel](
 	resourceModel RM,
 	ctx context.Context,
 	setter Setter,
-	provideFinalState func(m *models.IfCommonResourceModel, a *linuxhost_client.AdapterInfo) RM,
+	provideFinalState func(m *models.IfCommonResourceModel, a *linuxhost_client.AdapterInfo, all *linuxhost_client.AdapterInfoSlice) RM,
 ) diag.Diagnostics {
 	adapters, _ := linuxhost_client.ReadAdapters(hostData)
 	interfaceDescription := adapters.GetByName(resourceModel.GetCommon().Name.ValueString())
@@ -188,7 +188,7 @@ func IfToState[RM models.IsIfResourceModel](
 		return diags
 	}
 
-	finalModel := provideFinalState(commonResourceModel, interfaceDescription)
+	finalModel := provideFinalState(commonResourceModel, interfaceDescription, &adapters)
 	return setter.Set(ctx, finalModel)
 
 }

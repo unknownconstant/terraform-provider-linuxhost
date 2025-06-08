@@ -8,6 +8,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
@@ -59,9 +60,14 @@ func convertIfBridgeResourceModel(ctx context.Context, getter Getter) (*models.I
 	return resource, internal, diags
 }
 
-func convertBridgeIf(m *models.IfCommonResourceModel, a *linuxhost_client.AdapterInfo) *models.IfBridgeResourceModel {
+func convertBridgeIf(m *models.IfCommonResourceModel, a *linuxhost_client.AdapterInfo, all *linuxhost_client.AdapterInfoSlice) *models.IfBridgeResourceModel {
 	rm := &models.IfBridgeResourceModel{
 		IfCommonResourceModel: *m,
+	}
+	// Get to see if bridge has members
+	members := all.SelectWithDesignatedBridge(&a.BridgeInfo.BridgeId)
+	if len(members) == 0 {
+		rm.State = types.StringValue("up")
 	}
 	return rm
 }

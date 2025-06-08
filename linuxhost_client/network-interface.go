@@ -134,7 +134,36 @@ type AdapterInfo struct {
 
 type AdapterInfoSlice []*AdapterInfo
 
-func (l *AdapterInfoSlice) GetBridgeId(bridgeId string) *AdapterInfo {
+func (l *AdapterInfoSlice) SelectWithNoDesignatedBridge() AdapterInfoSlice {
+	slice := AdapterInfoSlice{}
+	for _, a := range *l {
+		if a.DesignatedBridge != nil {
+			continue
+		}
+		slice = append(slice, a)
+	}
+	return slice
+}
+func (l *AdapterInfoSlice) SelectWithDesignatedBridge(DesignatedBridge *string) AdapterInfoSlice {
+	slice := AdapterInfoSlice{}
+	if DesignatedBridge == nil {
+		return l.SelectWithNoDesignatedBridge()
+	}
+
+	for _, a := range *l {
+		if a.DesignatedBridge == nil {
+			continue
+		}
+		if *a.DesignatedBridge != *DesignatedBridge {
+			continue
+		}
+		slice = append(slice, a)
+	}
+
+	return slice
+}
+
+func (l *AdapterInfoSlice) GetIsBridgeId(bridgeId string) *AdapterInfo {
 	for _, a := range *l {
 		if a.BridgeInfo == nil {
 			continue
